@@ -1,27 +1,16 @@
 import streamlit as st
-import tensorflow as tf
 import numpy as np
+import cv2
+import joblib
 from PIL import Image
 
 # Load model
-model = tf.keras.models.load_model("traffic_sign_model.keras")
+model = joblib.load("traffic_model.pkl")
 
-# Class names
-classes = {
-    0: "Speed Limit 20",
-    1: "Speed Limit 30",
-    2: "Speed Limit 50",
-    3: "Speed Limit 60",
-    4: "Speed Limit 70",
-    5: "Speed Limit 80",
-    14: "Stop Sign",
-    17: "No Entry"
-}
+st.set_page_config(page_title="Traffic Sign Detection", layout="centered")
 
-st.set_page_config(page_title="Traffic Sign Detection")
-
-st.title("🚦 Traffic Sign Detection System")
-st.write("Upload a traffic sign image to detect the sign.")
+st.title("🚦 Traffic Sign Detection")
+st.write("Upload a traffic sign image")
 
 uploaded_file = st.file_uploader(
     "Choose an image",
@@ -30,7 +19,7 @@ uploaded_file = st.file_uploader(
 
 if uploaded_file is not None:
 
-    image = Image.open(uploaded_file).convert("RGB")
+    image = Image.open(uploaded_file)
 
     st.image(
         image,
@@ -38,45 +27,27 @@ if uploaded_file is not None:
         use_container_width=True
     )
 
-    img = image.resize((32, 32))
+    img = np.array(image)
 
-    img_array = np.array(img) / 255.0
+    img = cv2.resize(img, (32, 32))
 
-    img_array = np.expand_dims(
-        img_array,
-        axis=0
+    img = img / 255.0
+
+    img = img.flatten()
+
+    img = img.reshape(1, -1)
+
+    prediction = model.predict(img)[0]
+
+    traffic_signs = {
+        0: "Speed Limit",
+        14: "Stop Sign",
+        17: "No Entry"
+    }
+
+    result = traffic_signs.get(
+        prediction,
+        f"Traffic Sign Class {prediction}"
     )
 
-    prediction = model.predict(img_array)
-
-    class_id = np.argmax(prediction)
-
-    confidence = np.max(prediction)
-
-    st.subheader("Prediction")
-
-    if class_id in classes:
-        st.success(
-            f"Detected Sign: {classes[class_id]}"
-        )
-    else:
-        st.warning(
-            f"Detected Class ID: {class_id}"
-        )
-
-    st.write(
-        f"Confidence: {confidence:.2%}"
-    )
-
-    # Analytics Dashboard
-    st.subheader("📊 Traffic Analytics")
-
-    st.metric(
-        "Predicted Class ID",
-        class_id
-    )
-
-    st.metric(
-        "Confidence",
-        f"{confidence:.2%}"
-    )
+    st.success(f"Prediction: {result}")
